@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LedgerDB · Live Model</title>
+<style>
+  :root {
+    --navy: #1f3a5f; --navy-2: #2d5a8f; --ink: #1d2433; --muted: #6b7280;
+    --bg: #f3f5fa; --card: #ffffff; --line: #e5e9f2;
+    --blue: #2563eb; --green: #15803d; --red: #c8102e; --amber: #b45309;
+    --hot: #fde68a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+         background: var(--bg); color: var(--ink); }
+  header { background: linear-gradient(120deg, var(--navy), var(--navy-2)); color: #fff;
+           padding: 22px 32px; display: flex; justify-content: space-between; align-items: center;
+           flex-wrap: wrap; gap: 14px; box-shadow: 0 4px 18px rgba(31,58,95,.25); }
+  .brand { display: flex; align-items: center; gap: 16px; }
+  .logo { width: 52px; height: 52px; border-radius: 14px; background: #fff; color: var(--navy);
+          font-weight: 800; font-size: 28px; display: grid; place-items: center; }
+  h1 { margin: 0; font-size: 26px; letter-spacing: .3px; }
+  .tagline { margin: 4px 0 0; opacity: .85; font-size: 13.5px; }
+  .stats { display: flex; gap: 10px; flex-wrap: wrap; }
+  .pill { background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25);
+          padding: 6px 12px; border-radius: 999px; font-size: 13px; }
+  .pill b { font-size: 15px; }
+
+  .scenarios { display: flex; flex-wrap: wrap; gap: 10px; padding: 18px 32px 6px; align-items: center; }
+  .scenarios .label { color: var(--muted); font-size: 13px; margin-right: 6px; text-transform: uppercase;
+                      letter-spacing: 1px; }
+  button { font: inherit; cursor: pointer; border: 0; border-radius: 10px; padding: 9px 14px;
+           background: var(--navy); color: #fff; transition: transform .08s, box-shadow .15s, opacity .15s; }
+  button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(31,58,95,.25); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.s-snap { background: #0f766e; }
+  button.s-conf { background: #7c3aed; }
+  button.s-naive { background: #b45309; }
+  button.s-fixed { background: #15803d; }
+  button.s-rec { background: #1d4ed8; }
+  button.s-tree { background: #0e7490; }
+  button.ghost { background: #fff; color: var(--navy); border: 1px solid var(--line); }
+  button.small { padding: 5px 10px; font-size: 13px; border-radius: 8px; }
+  button.danger { background: #fff; color: var(--red); border: 1px solid #f1c2ca; }
+
+  .caption { margin: 8px 32px 0; padding: 12px 16px; border-radius: 12px; background: #fff;
+             border-left: 5px solid var(--navy-2); box-shadow: 0 1px 4px rgba(0,0,0,.06);
+             min-height: 46px; display: flex; align-items: center; font-size: 15px; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 18px 32px; }
+  @media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border-radius: 16px; padding: 18px 18px 16px;
+          box-shadow: 0 2px 10px rgba(20,30,60,.06); border: 1px solid var(--line); }
+  .card h2 { margin: 0 0 12px; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+  .card h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--navy-2); }
+  .card h3 { margin: 18px 0 8px; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; }
+  .wide { min-width: 0; grid-column: 1 / -1; }
+  #tree { min-height: 300px; }
+
+  .txn { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 10px;
+         background: linear-gradient(#fff, #fbfcff); }
+  .txn .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .txn .name { font-weight: 700; font-size: 15px; }
+  .badge { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: #e0e9ff; color: #1e3a8a; }
+  .txn .pend { font-family: Consolas, monospace; font-size: 12.5px; color: #374151; margin: 8px 0; min-height: 18px; }
+  .txn .actions { display: flex; gap: 8px; }
+  .empty { color: var(--muted); font-size: 13.5px; font-style: italic; }
+
+  .form { display: grid; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
+  .form .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  input, select { font: inherit; padding: 8px 10px; border-radius: 9px; border: 1px solid #cfd6e4;
+                  background: #fff; min-width: 0; flex: 1; }
+  input:focus, select:focus { outline: 2px solid #93b4e8; border-color: transparent; }
+  .form .tags { font-size: 12.5px; color: var(--muted); }
+
+  #tree { width: 100%; height: auto; min-height: 220px; background:
+          radial-gradient(circle at 1px 1px, #e8edf7 1px, transparent 0) 0 0 / 18px 18px; border-radius: 12px; }
+  .node-box { fill: #fff; stroke: var(--navy); stroke-width: 1.6; }
+  .leaf-box { fill: #eef5ff; stroke: var(--blue); }
+  .key-cell { fill: #fff; stroke: #9db4d6; stroke-width: 1; }
+  .key-hot { fill: var(--hot); stroke: var(--amber); stroke-width: 1.6; }
+  .key-text { font: 600 12.5px Consolas, monospace; fill: var(--ink); text-anchor: middle; dominant-baseline: middle; }
+  .edge { fill: none; stroke: #94a3b8; stroke-width: 1.6; }
+  .leaf-link { fill: none; stroke: var(--red); stroke-width: 1.8; stroke-dasharray: 6 5; }
+  .tree-note { font: 12px system-ui; fill: var(--muted); }
+  @keyframes pulse { 0%{transform:scale(1)} 50%{transform:scale(1.06)} 100%{transform:scale(1)} }
+  .pulse { transform-box: fill-box; transform-origin: center; animation: pulse .7s ease 2; }
+
+  .hist { list-style: none; margin: 0; padding: 0; }
+  .hist li { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line);
+             font-size: 14px; }
+  .ts { background: var(--navy); color: #fff; border-radius: 8px; padding: 2px 8px; font-size: 12px; font-weight: 600; }
+  .ts.del { background: #9ca3af; }
+  .val { font-family: Consolas, monospace; }
+  .deleted { color: var(--muted); font-style: italic; }
+
+  .wal { max-height: 430px; overflow: auto; font-family: Consolas, monospace; font-size: 12.5px; }
+  .wal .rec { display: flex; gap: 8px; padding: 6px 8px; border-left: 4px solid var(--blue); background: #f5f8ff;
+              margin-bottom: 5px; border-radius: 0 8px 8px 0; word-break: break-all; }
+  .wal .rec.commit { border-left-color: var(--green); background: #effaf3; }
+  .wal .tag { font-weight: 700; min-width: 56px; }
+  .wal .commit .tag { color: var(--green); }
+  .wal .write .tag { color: var(--blue); }
+  .wal .txnid { color: var(--muted); }
+
+  .feed { margin: 18px 32px 28px; }
+  #feed { list-style: none; margin: 0; padding: 0; max-height: 210px; overflow: auto; }
+  #feed li { padding: 7px 10px; border-radius: 8px; font-size: 14px; margin-bottom: 4px; display: flex; gap: 10px; }
+  #feed li.ok { background: #effaf3; }
+  #feed li.err { background: #fdecef; color: #7f1d1d; }
+  #feed li.info { background: #f3f6fb; }
+  #feed .time { color: var(--muted); font-family: Consolas, monospace; font-size: 12.5px; min-width: 70px; }
+  footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 0 22px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">L</div>
+    <div>
+      <h1>LedgerDB</h1>
+      <p class="tagline">A key-value database engine: snapshot isolation · B+ tree index · write-ahead log · no SQL</p>
+    </div>
+  </div>
+  <div class="stats">
+    <span class="pill">commit ts <b id="stat-commit">0</b></span>
+    <span class="pill">log records <b id="stat-wal">0</b></span>
+    <span class="pill">keys <b id="stat-keys">0</b></span>
+    <span class="pill">open txns <b id="stat-txns">0</b></span>
+  </div>
+</header>
+
+<section class="scenarios">
+  <span class="label">Guided demos</span>
+  <button class="s-snap" data-scenario="snapshot">1 · Snapshot isolation</button>
+  <button class="s-conf" data-scenario="conflict">2 · Write conflict</button>
+  <button class="s-naive" data-scenario="naive">3 · Write skew (naive)</button>
+  <button class="s-fixed" data-scenario="fixed">4 · Write skew (fixed)</button>
+  <button class="s-rec" data-scenario="recovery">5 · Crash &amp; recovery</button>
+  <button class="s-tree" data-scenario="growth">6 · B+ tree growth</button>
+  <button class="ghost danger" id="reset">Reset database</button>
+</section>
+
+<div class="caption" id="caption">Pick a guided demo to watch the engine work step by step, or drive it yourself below.</div>
+
+<main class="grid">
+  <!-- Tree + history -->
+  <section class="card wide">
+    <h2><span class="dot"></span>B+ tree index <span class="tags" id="tree-meta" style="font-weight:400;color:var(--muted);font-size:13px"></span></h2>
+    <svg id="tree" viewBox="0 0 600 220" preserveAspectRatio="xMidYMin meet"></svg>
+    <h3>Version history</h3>
+    <div class="row" style="display:flex;gap:8px">
+      <select id="hist-key" style="flex:1"></select>
+    </div>
+    <ul class="hist" id="history"></ul>
+  </section>
+
+  <!-- Transactions -->
+  <section class="card">
+    <h2><span class="dot"></span>Transactions</h2>
+    <div id="txns"></div>
+    <button class="small" id="new-txn">+ New transaction</button>
+
+    <div class="form">
+      <select id="f-txn" title="transaction"></select>
+      <input id="f-key" placeholder="key, e.g. account:alice">
+      <input id="f-value" placeholder='value, e.g. 100 or "text"'>
+      <div class="row">
+        <button class="small" id="btn-get">Read</button>
+        <button class="small" id="btn-put">Write</button>
+        <button class="small ghost" id="btn-del">Delete</button>
+      </div>
+      <div class="row">
+        <input id="f-lo" placeholder="from (optional)">
+        <input id="f-hi" placeholder="to (optional)">
+        <button class="small ghost" id="btn-scan">Scan</button>
+      </div>
+      <div class="tags">Values are JSON: <code>100</code>, <code>"text"</code>, <code>true</code>. Scan returns keys in [from, to).</div>
+    </div>
+  </section>
+
+  <!-- WAL -->
+  <section class="card">
+    <h2><span class="dot"></span>Write-ahead log</h2>
+    <div class="wal" id="wal"></div>
+  </section>
+</main>
+
+<section class="card feed">
+  <h2><span class="dot"></span>Activity</h2>
+  <ul id="feed"></ul>
+</section>
+
+<footer>Runs the real LedgerDB engine on this machine. Restart the server to start over.</footer>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (sel) => document.querySelector(sel);
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const show = (v) => (typeof v === "string" ? `"${v}"` : JSON.stringify(v));
+
+  const app = { data: null, hot: new Set(), busy: false, histKey: "", selectedTxn: "" };
+
+  // ---------- API ----------
+  async function api(path, body = {}) {
+    const res = await fetch(path, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.statusText);
+    return data;
+  }
+  async function refresh() {
+    app.data = await (await fetch("/api/state", { cache: "no-store" })).json();
+    render();
+  }
+
+  // ---------- activity feed ----------
+  function log(text, kind = "info") {
+    const li = document.createElement("li");
+    li.className = kind;
+    const t = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    li.innerHTML = `<span class="time">${t}</span><span>${esc(text)}</span>`;
+    $("#feed").prepend(li);
+  }
+  function caption(text) { $("#caption").textContent = text; }
+  function touch(keys) {
+    keys.forEach((k) => app.hot.add(k));
+    render();
+    setTimeout(() => { keys.forEach((k) => app.hot.delete(k)); render(); }, 1800);
+  }
+
+  // Run one manual action: log the outcome and refresh the view.
+  async function act(text, fn) {
+    try {
+      const out = await fn();
+      log(text(out), "ok");
+      await refresh();
+      return out;
+    } catch (e) {
+      log(`${e.message}`, "err");
+      await refresh();
+      return null;
+    }
+  }
+
+  // Run one step of a guided demo: explain, do, pause so it can be followed.
+  async function step(text, fn, hot = []) {
+    caption(text);
+    let out = null;
+    try {
+      out = await fn();
+      log(text, "ok");
+    } catch (e) {
+      log(`${text.replace(/[.:]\s*$/, "")}: ${e.message}`, "err");
+    }
+    if (hot.length) touch(hot);
+    await refresh();
+    await sleep(1100);
+    return out;
+  }
+
+  // ---------- rendering ----------
+  function render() {
+    const d = app.data;
+    if (!d) return;
+    $("#stat-commit").textContent = d.commit_ts;
+    $("#stat-wal").textContent = d.wal_lines;
+    $("#stat-keys").textContent = d.keys.length;
+    $("#stat-txns").textContent = d.txns.length;
+    $("#tree-meta").textContent = `order ${d.order} · ${d.keys.length} key(s)`;
+    renderTxns(d);
+    renderSelects(d);
+    renderTree(d.tree);
+    renderWal(d.wal);
+    renderHistory();
+  }
+
+  function renderTxns(d) {
+    const box = $("#txns");
+    if (!d.txns.length) { box.innerHTML = '<p class="empty">No open transactions.</p>'; return; }
+    box.innerHTML = d.txns.map((t) => {
+      const pend = t.pending.length
+        ? t.pending.map((p) => `${esc(p.key)} = ${p.deleted ? "<i>deleted</i>" : esc(show(p.value))}`).join("<br>")
+        : "no pending writes";
+      return `<div class="txn">
+        <div class="head"><span class="name">${esc(t.name)}</span>
+          <span class="badge">snapshot @ ts ${t.start_ts}</span></div>
+        <div class="pend">${pend}</div>
+        <div class="actions">
+          <button class="small" data-commit="${esc(t.name)}">Commit</button>
+          <button class="small ghost" data-rollback="${esc(t.name)}">Rollback</button>
+        </div></div>`;
+    }).join("");
+  }
+
+  function renderSelects(d) {
+    const txnSel = $("#f-txn");
+    const names = d.txns.map((t) => t.name);
+    if (!names.includes(app.selectedTxn)) app.selectedTxn = names[0] || "";
+    txnSel.innerHTML = names.length
+      ? names.map((n) => `<option ${n === app.selectedTxn ? "selected" : ""}>${esc(n)}</option>`).join("")
+      : '<option value="">(none open)</option>';
+
+    const keySel = $("#hist-key");
+    if (!d.keys.includes(app.histKey)) app.histKey = d.keys[0] || "";
+    keySel.innerHTML = d.keys.length
+      ? d.keys.map((k) => `<option ${k === app.histKey ? "selected" : ""}>${esc(k)}</option>`).join("")
+      : '<option value="">(no keys yet)</option>';
+  }
+
+  async function renderHistory() {
+    const list = $("#history");
+    if (!app.histKey) { list.innerHTML = '<li class="empty">Write a key to see its versions.</li>'; return; }
+    const { versions } = await api("/api/history", { key: app.histKey });
+    list.innerHTML = versions.length
+      ? versions.map((v) => `<li><span class="ts ${v.deleted ? "del" : ""}">ts ${v.ts}</span>
+          ${v.deleted ? '<span class="deleted">deleted (tombstone)</span>'
+                      : `<span class="val">${esc(show(v.value))}</span>`}</li>`).join("")
+      : '<li class="empty">No committed versions.</li>';
+  }
+
+  // ----- B+ tree drawing -----
+  function renderTree(tree) {
+    const svg = $("#tree");
+    if (!tree || !tree.keys.length) {
+      svg.setAttribute("viewBox", "0 0 600 120");
+      svg.innerHTML = '<text x="300" y="60" text-anchor="middle" class="tree-note">Empty tree. Write a key and commit it to see the index.</text>';
+      return;
+    }
+    const allKeys = [];
+    (function collect(n) { n.keys.forEach((k) => allKeys.push(k)); (n.children || []).forEach(collect); })(tree);
+    const maxLen = Math.max(...allKeys.map((k) => k.length));
+    const CELL = Math.min(170, Math.max(78, maxLen * 8 + 22));
+    const PAD = 10, H = 40, LEVEL = 104, GAP = 46, TOP = 44, LEFT = 22;
+
+    const leaves = [];
+    const pos = new Map();
+    let cursor = 0;
+    function width(n) { return Math.max(1, n.keys.length) * CELL + PAD * 2; }
+    function layout(n, depth) {
+      const w = width(n);
+      if (n.leaf) {
+        pos.set(n, { x: cursor, w, depth });
+        leaves.push(n);
+        cursor += w + GAP;
+      } else {
+        const kids = n.children.map((c) => layout(c, depth + 1));
+        const first = kids[0].x, last = kids[kids.length - 1].x + kids[kids.length - 1].w;
+        pos.set(n, { x: (first + last) / 2 - w / 2, w, depth });
+      }
+      return pos.get(n);
+    }
+    layout(tree, 0);
+    const maxDepth = Math.max(...[...pos.values()].map((p) => p.depth));
+    const totalW = cursor - GAP + LEFT * 2;
+    const totalH = TOP + (maxDepth + 1) * LEVEL + 30;
+    svg.setAttribute("viewBox", `0 0 ${Math.max(600, totalW)} ${totalH}`);
+
+    const parts = [`<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c8102e"/></marker></defs>`];
+
+    // edges parent -> child
+    (function edges(n) {
+      if (n.leaf) return;
+      const p = pos.get(n);
+      n.children.forEach((c) => {
+        const q = pos.get(c);
+        const x1 = LEFT + p.x + p.w / 2, y1 = TOP + p.depth * LEVEL + H;
+        const x2 = LEFT + q.x + q.w / 2, y2 = TOP + q.depth * LEVEL;
+        const my = (y1 + y2) / 2;
+        parts.push(`<path class="edge" d="M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}"/>`);
+        edges(c);
+      });
+    })(tree);
+
+    // leaf links (the chain range scans follow)
+    for (let i = 0; i + 1 < leaves.length; i++) {
+      const a = pos.get(leaves[i]), b = pos.get(leaves[i + 1]);
+      const y = TOP + a.depth * LEVEL + H / 2;
+      const x1 = LEFT + a.x + a.w, x2 = LEFT + b.x;
+      parts.push(`<path class="leaf-link" d="M${x1},${y} C${x1 + 18},${y - 18} ${x2 - 18},${y - 18} ${x2},${y}" marker-end="url(#arr)"/>`);
+    }
+
+    // nodes and key cells
+    (function draw(n) {
+      const p = pos.get(n);
+      const x = LEFT + p.x, y = TOP + p.depth * LEVEL;
+      parts.push(`<rect class="${n.leaf ? "node-box leaf-box" : "node-box"}" x="${x}" y="${y}" width="${p.w}" height="${H}" rx="10"/>`);
+      n.keys.forEach((k, i) => {
+        const cx = x + PAD + i * CELL, hot = app.hot.has(k);
+        parts.push(`<rect class="${hot ? "key-hot" : "key-cell"} ${hot ? "pulse" : ""}" x="${cx + 3}" y="${y + 5}" width="${CELL - 6}" height="${H - 10}" rx="6"/>`);
+        parts.push(`<text class="key-text" x="${cx + CELL / 2}" y="${y + H / 2}">${esc(k)}</text>`);
+      });
+      if (!n.leaf) n.children.forEach(draw);
+    })(tree);
+
+    parts.push(`<text class="tree-note" x="${LEFT}" y="${totalH - 8}">Each box is a node. Red dashed arrows link the leaves in key order, which range scans follow.</text>`);
+    svg.innerHTML = parts.join("");
+  }
+
+  function renderWal(records) {
+    const box = $("#wal");
+    if (!records.length) { box.innerHTML = '<p class="empty">The log is empty. Commits are appended here.</p>'; return; }
+    box.innerHTML = records.map((r) => {
+      if (r.t === "commit") {
+        return `<div class="rec commit"><span class="tag">COMMIT</span><span>ts ${r.ts}</span>
+                <span class="txnid">${esc(r.txn.slice(0, 6))}</span></div>`;
+      }
+      return `<div class="rec write"><span class="tag">write</span><span>${esc(r.k)} = ${esc(show(r.v))}${r.d ? " (delete)" : ""}</span>
+              <span class="txnid">${esc(r.txn.slice(0, 6))}</span></div>`;
+    }).join("");
+    box.scrollTop = box.scrollHeight;
+  }
+
+  // ---------- manual controls ----------
+  function txnName() {
+    const name = $("#f-txn").value;
+    if (!name) throw new Error("open a transaction first (click New transaction)");
+    return name;
+  }
+  function keyVal() {
+    const key = $("#f-key").value.trim();
+    if (!key) throw new Error("type a key first");
+    return key;
+  }
+  function parseValue(text) { try { return JSON.parse(text); } catch { return text; } }
+
+  $("#new-txn").addEventListener("click", () => act("Started a new transaction", () => api("/api/begin", {})).then(r => r && log(`${r.name} started with snapshot at commit ts ${r.start_ts}`, "ok")));
+
+  document.addEventListener("click", (e) => {
+    const c = e.target.closest("[data-commit]");
+    const r = e.target.closest("[data-rollback]");
+    if (c) act(`${c.dataset.commit} committed`, () => api("/api/commit", { txn: c.dataset.commit }));
+    if (r) act(`${r.dataset.rollback} rolled back`, () => api("/api/rollback", { txn: r.dataset.rollback }));
+  });
+
+  $("#btn-get").addEventListener("click", async () => {
+    try {
+      const t = txnName(), k = keyVal();
+      const out = await api("/api/get", { txn: t, key: k });
+      log(out.found ? `${t} reads ${k} = ${show(out.value)}` : `${t} reads ${k}: no value in its snapshot`, "ok");
+    } catch (e) { log(e.message, "err"); }
+  });
+  $("#btn-put").addEventListener("click", () => {
+    const t = (() => { try { return txnName(); } catch (e) { log(e.message, "err"); return null; } })();
+    if (!t) return;
+    let k; try { k = keyVal(); } catch (e) { return log(e.message, "err"); }
+    const v = parseValue($("#f-value").value);
+    act(`${t} wrote ${k} = ${show(v)} (not committed yet)`, () => api("/api/put", { txn: t, key: k, value: v }))
+      .then(() => touch([k]));
+  });
+  $("#btn-del").addEventListener("click", () => {
+    let t, k; try { t = txnName(); k = keyVal(); } catch (e) { return log(e.message, "err"); }
+    act(`${t} deleted ${k} (not committed yet)`, () => api("/api/delete", { txn: t, key: k }));
+  });
+  $("#btn-scan").addEventListener("click", async () => {
+    try {
+      const t = txnName();
+      const out = await api("/api/scan", { txn: t, lo: $("#f-lo").value.trim(), hi: $("#f-hi").value.trim() });
+      const rows = out.rows.map((r) => `${r.key}=${show(r.value)}`).join(", ") || "no rows";
+      log(`${t} scan: ${rows}`, "ok");
+    } catch (e) { log(e.message, "err"); }
+  });
+  $("#f-txn").addEventListener("change", (e) => { app.selectedTxn = e.target.value; });
+  $("#hist-key").addEventListener("change", (e) => { app.histKey = e.target.value; renderHistory(); });
+  $("#reset").addEventListener("click", () => act("Database reset", () => api("/api/reset")).then(() => caption("Database reset. Pick a guided demo or drive it yourself.")));
+
+  // ---------- guided demos (each one uses the real API) ----------
+  async function withBusy(fn) {
+    if (app.busy) return;
+    app.busy = true;
+    document.querySelectorAll("button").forEach((b) => (b.disabled = true));
+    try { await fn(); }
+    finally {
+      app.busy = false;
+      document.querySelectorAll("button").forEach((b) => (b.disabled = false));
+    }
+  }
+
+  async function countOnCall(txn) {
+    const { rows } = await api("/api/scan", { txn, lo: "doctor:", hi: "doctor;" });
+    return rows.filter((r) => r.value === "on").length;
+  }
+
+  const demos = {
+    async snapshot() {
+      await api("/api/reset");
+      await refresh();
+      await step("Writer T1 creates account:alice = 100 and commits.", async () => {
+        await api("/api/begin", { name: "T1" });
+        await api("/api/put", { txn: "T1", key: "account:alice", value: 100 });
+        await api("/api/commit", { txn: "T1" });
+      }, ["account:alice"]);
+      await step("Reader T2 starts now. Its snapshot is fixed at commit ts 1.", () => api("/api/begin", { name: "T2" }));
+      await step("Writer T3 changes alice to 70 and commits.", async () => {
+        await api("/api/begin", { name: "T3" });
+        await api("/api/put", { txn: "T3", key: "account:alice", value: 70 });
+        await api("/api/commit", { txn: "T3" });
+      }, ["account:alice"]);
+      await step("T2 still reads 100. The later commit is invisible to its snapshot.", async () => {
+        const r = await api("/api/get", { txn: "T2", key: "account:alice" });
+        log(`T2 reads account:alice = ${show(r.value)}`, "ok");
+      });
+      await step("A new transaction T4 sees the latest committed value, 70.", async () => {
+        await api("/api/begin", { name: "T4" });
+        const r = await api("/api/get", { txn: "T4", key: "account:alice" });
+        log(`T4 reads account:alice = ${show(r.value)}`, "ok");
+      });
+      app.histKey = "account:alice";
+      await step("Both versions are kept. Readers pick the one their snapshot allows.", async () => {
+        await api("/api/rollback", { txn: "T2" }); await api("/api/rollback", { txn: "T4" });
+      });
+      caption("Snapshot isolation: readers never block writers, and each reader keeps a consistent view.");
+    },
+
+    async conflict() {
+      await api("/api/reset");
+      await refresh();
+      await step("Transactions A and B both start, then both write account:alice.", async () => {
+        await api("/api/begin", { name: "A" });
+        await api("/api/begin", { name: "B" });
+        await api("/api/put", { txn: "A", key: "account:alice", value: 10 });
+        await api("/api/put", { txn: "B", key: "account:alice", value: 20 });
+      });
+      await step("A commits first. It wins.", () => api("/api/commit", { txn: "A" }), ["account:alice"]);
+      await step("B tries to commit the same key. The engine rejects it (first committer wins).", () => api("/api/commit", { txn: "B" }));
+      caption("Write conflict: the second commit to a key changed since its snapshot is rejected, and must retry.");
+    },
+
+    async growth() {
+      await api("/api/reset");
+      await refresh();
+      const names = ["account:dave", "account:alice", "account:frank", "account:bob",
+                     "account:carol", "account:erin", "account:gina", "account:hank"];
+      for (let i = 0; i < names.length; i++) {
+        const name = names[i], t = `G${i + 1}`;
+        await step(`Insert ${name} and commit. ${i >= 2 ? "Watch for a node to overflow and split." : "The first keys fill the single leaf."}`, async () => {
+          await api("/api/begin", { name: t });
+          await api("/api/put", { txn: t, key: name, value: 100 + i * 10 });
+          await api("/api/commit", { txn: t });
+        }, [name]);
+      }
+      caption("When a node overflows it splits, and its middle key moves up. The leaves stay linked, so range scans can follow them.");
+    },
+
+    async naive() { return skew(false); },
+    async fixed() { return skew(true); },
+
+    async recovery() {
+      await api("/api/reset");
+      await refresh();
+      await step("Commit two accounts: alice = 100, bob = 50.", async () => {
+        await api("/api/begin", { name: "S" });
+        await api("/api/put", { txn: "S", key: "account:alice", value: 100 });
+        await api("/api/put", { txn: "S", key: "account:bob", value: 50 });
+        await api("/api/commit", { txn: "S" });
+      }, ["account:alice", "account:bob"]);
+      await step("Start U and write alice = 999, but do not commit.", async () => {
+        await api("/api/begin", { name: "U" });
+        await api("/api/put", { txn: "U", key: "account:alice", value: 999 });
+      });
+      await step("Restart the database. The log is replayed; U's uncommitted write is lost.", () => api("/api/restart"), []);
+      await step("After restart, alice is still 100 from the committed log.", async () => {
+        await api("/api/begin", { name: "R" });
+        const r = await api("/api/get", { txn: "R", key: "account:alice" });
+        log(`R reads account:alice = ${show(r.value)}`, "ok");
+        await api("/api/rollback", { txn: "R" });
+      });
+      caption("Crash and recovery: only committed transactions survive a restart.");
+    },
+  };
+
+  async function skew(fixed) {
+    await api("/api/reset");
+    await refresh();
+    await step("Setup: Alice and Bob are both on call. Rule: at least one must stay on call.", async () => {
+      await api("/api/begin", { name: "S" });
+      await api("/api/put", { txn: "S", key: "doctor:alice", value: "on" });
+      await api("/api/put", { txn: "S", key: "doctor:bob", value: "on" });
+      await api("/api/commit", { txn: "S" });
+    }, ["doctor:alice", "doctor:bob"]);
+    await step("Transaction A starts, then transaction B starts. Both can see the same snapshot.", async () => {
+      await api("/api/begin", { name: "A" });
+      await api("/api/begin", { name: "B" });
+    });
+    await step(`A checks the rule (two on call, so it is safe) and takes Alice off call.${fixed ? " It also writes a shared lock key." : ""}`, async () => {
+      if ((await countOnCall("A")) >= 2) {
+        if (fixed) await api("/api/put", { txn: "A", key: "lock:oncall", value: "held" });
+        await api("/api/put", { txn: "A", key: "doctor:alice", value: "off" });
+      }
+    }, ["doctor:alice"]);
+    await step(`B checks the rule against its own snapshot (also two on call) and takes Bob off call.${fixed ? " It writes the same lock key." : ""}`, async () => {
+      if ((await countOnCall("B")) >= 2) {
+        if (fixed) await api("/api/put", { txn: "B", key: "lock:oncall", value: "held" });
+        await api("/api/put", { txn: "B", key: "doctor:bob", value: "off" });
+      }
+    }, ["doctor:bob"]);
+    await step("Commit A.", () => api("/api/commit", { txn: "A" }), ["doctor:alice"]);
+    await step(fixed
+      ? "Commit B. The lock key changed after B began, so the engine rejects it."
+      : "Commit B. It wrote a different key, so the engine accepts it too.",
+      () => api("/api/commit", { txn: "B" }), ["doctor:bob"]);
+    await step("Result: check who is on call now.", async () => {
+      await api("/api/begin", { name: "R" });
+      const n = await countOnCall("R");
+      await api("/api/rollback", { txn: "R" });
+      log(n === 0 ? "Nobody is on call. The rule is broken (write skew)." : `${n} doctor(s) on call. The rule holds.`, n === 0 ? "err" : "ok");
+    });
+    caption(fixed
+      ? "Fixed: writing one shared key makes the two transactions conflict, so the rule is kept."
+      : "Naive: both transactions wrote different keys, so snapshot isolation allowed both. Nobody is on call.");
+  }
+
+  document.querySelectorAll("[data-scenario]").forEach((btn) => {
+    btn.addEventListener("click", () => withBusy(async () => {
+      log(`Demo started: ${btn.textContent.replace(/^\d\s·\s/, "")}`, "info");
+      await demos[btn.dataset.scenario]();
+    }));
+  });
+
+  refresh().then(() => caption("Pick a guided demo to watch the engine work step by step, or drive it yourself below."))
+           .catch((e) => log(`Cannot reach the server: ${e.message}`, "err"));
+})();
+</script>
+</body>
+</html>

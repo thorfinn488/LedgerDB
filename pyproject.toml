@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ledgerdb"
+version = "1.0.0"
+description = "A durable key-value database engine with snapshot isolation, B+ tree index, and write-ahead log — ADBMS PBL project"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Ayush", email = "ayush@example.com"}]
+
+[project.scripts]
+ledgerdb-web = "ledgerdb.web:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
