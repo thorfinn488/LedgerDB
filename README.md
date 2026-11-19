@@ -9,7 +9,8 @@
 
 ## Overview
 
-LedgerDB is a durable key-value database engine written in Python that demonstrates the internals behind several ADBMS topics:
+LedgerDB is a durable key-value database engine written in Python that demonstrates the internals behind several ADBMS topic
+:
 
 - **B+ tree index** — ordered point lookups and range scans
 - **Write-ahead log (WAL)** — crash recovery; only committed transactions survive a restart
